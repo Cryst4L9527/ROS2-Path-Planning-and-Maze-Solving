@@ -52,10 +52,10 @@ class maze_solver(Node):
         
         self.velocity_publisher = self.create_publisher(Twist,'/cmd_vel',10)
         self.videofeed_subscriber = self.create_subscription(Image,'/upper_camera/image_raw',self.get_video_feed_cb,10)
-        
+        self.no_view=True
         # Visualizing what the robot sees by subscribing to bot_camera/Image_raw
-        self.bot_subscriber = self.create_subscription(Image,'/Botcamera/image_raw',self.process_data_bot,10)
-
+        self.bot_subscriber1 = self.create_subscription(Image,'/Botcamera/image',self.process_data_bot,10)
+        self.bot_subscriber2 = self.create_subscription(Image,'/Botcamera/image_raw',self.process_data,10)
         self.timer = self.create_timer(0.2, self.maze_solving)
         self.bridge = CvBridge()
         self.vel_msg = Twist()
@@ -72,16 +72,20 @@ class maze_solver(Node):
         self.bot_speed = 0
         self.bot_turning = 0
 
-        self.sat_view = np.zeros((100,100))
+        self.sat_view = np.zeros((720,1280,3))
 
         self.debugging = Debugging()
 
     def get_video_feed_cb(self,data):
         frame = self.bridge.imgmsg_to_cv2(data,'bgr8')
         self.sat_view = frame
-    
+        #print(self.sat_view)
+        #print(self.sat_view.shape)
+    def process_data(self, data):
+      return 
     def process_data_bot(self, data):
       self.bot_view = self.bridge.imgmsg_to_cv2(data,'bgr8') # performing conversion
+      self.no_view=False
 
     def get_bot_speed(self,data):
         # We get the bot_turn_angle in simulation Using same method as Gotogoal.py
@@ -210,7 +214,7 @@ class maze_solver(Node):
 
     def maze_solving(self):
         
-        self.debugging.setDebugParameters()
+        #self.debugging.setDebugParameters()
 
         # Creating frame to display current robot state to user        
         frame_disp = self.sat_view.copy()
@@ -242,29 +246,31 @@ class maze_solver(Node):
         self.bot_motionplanner.display_control_mechanism_in_action(bot_loc, path, img_shortest_path, self.bot_localizer, frame_disp)
         
         # View bot view on left to frame Display
+        if self.no_view:
+            return
         bot_view = cv2.resize(self.bot_view, (int(frame_disp.shape[0]/2),int(frame_disp.shape[1]/2)))
         bot_view = bot_view[0:int(bot_view.shape[0]/1.5),:]
 
         # Draw & Display [For better Understanding of current robot state]
-        center_frame_disp = int(frame_disp.shape[0]/2)
-        center_bot_view = int(bot_view.shape[0]/2)
-        bot_offset = center_frame_disp - center_bot_view
-        center_img_shortest_path = int(img_shortest_path.shape[0]/2)
-        isp_offset = center_frame_disp - center_img_shortest_path
+        # center_frame_disp = int(frame_disp.shape[0]/2)
+        # center_bot_view = int(bot_view.shape[0]/2)
+        # bot_offset = center_frame_disp - center_bot_view
+        # center_img_shortest_path = int(img_shortest_path.shape[0]/2)
+        # isp_offset = center_frame_disp - center_img_shortest_path
 
-        bot_view = self.draw_bot_speedo(bot_view,self.bot_motionplanner.curr_speed)
+        # bot_view = self.draw_bot_speedo(bot_view,self.bot_motionplanner.curr_speed)
 
-        if config.debug_live:
-            self.overlay_live(frame_disp,img_shortest_path,self.bot_mapper.maze_interestPts,self.bot_pathplanner.choosen_route)
+        # if config.debug_live:
+        #     self.overlay_live(frame_disp,img_shortest_path,self.bot_mapper.maze_interestPts,self.bot_pathplanner.choosen_route)
 
-        orig_col = 40 + int(bot_view.shape[1]/4)
-        orig = (orig_col,bot_offset-10)
-        cv2.putText(frame_disp, "Bot View", orig, cv2.FONT_HERSHEY_PLAIN, 2, (255,0,0),3)
-        frame_disp = cv2.rectangle(frame_disp, (20,bot_offset), (bot_view.shape[1]+20,(bot_view.shape[0]+bot_offset)), (0,0,255),12)
-        frame_disp[bot_offset:(bot_view.shape[0]+bot_offset),20:bot_view.shape[1]+20] = bot_view
+        # orig_col = 40 + int(bot_view.shape[1]/4)
+        # orig = (orig_col,bot_offset-10)
+        # cv2.putText(frame_disp, "Bot View", orig, cv2.FONT_HERSHEY_PLAIN, 2, (255,0,0),3)
+        # frame_disp = cv2.rectangle(frame_disp, (20,bot_offset), (bot_view.shape[1]+20,(bot_view.shape[0]+bot_offset)), (0,0,255),12)
+        # frame_disp[bot_offset:(bot_view.shape[0]+bot_offset),20:bot_view.shape[1]+20] = bot_view
  
-        cv2.imshow("Maze (Live)", frame_disp)
-        cv2.waitKey(1)
+        #cv2.imshow("Maze (Live)", frame_disp)
+        #cv2.waitKey(1)
 
 def main(args =None):
     rclpy.init()
